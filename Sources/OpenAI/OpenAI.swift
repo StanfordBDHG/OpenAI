@@ -227,7 +227,7 @@ extension OpenAI {
         var components = URLComponents()
         components.scheme = "https"
         
-        // If IPv6 address, surround the address with '[' and ']' as required by RFC 3986: https://datatracker.ietf.org/doc/html/rfc3986
+        // If IPv6 address, wrap the IP with '[' and ']' as required by RFC 3986: https://datatracker.ietf.org/doc/html/rfc3986
         if configuration.host.contains(":") && !configuration.host.hasPrefix("[") && !configuration.host.hasSuffix("]") {
             components.host = "[\(configuration.host)]"
         } else {
