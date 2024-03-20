@@ -25,7 +25,7 @@ final class MultipartFormDataRequest<ResultType> {
 
 extension MultipartFormDataRequest: URLRequestBuildable {
     
-    func build(token: String, organizationIdentifier: String?, timeoutInterval: TimeInterval) throws -> URLRequest {
+    func build(token: String, organizationIdentifier: String?, timeoutInterval: TimeInterval, expectedHost: String?) throws -> URLRequest {
         var request = URLRequest(url: url)
         let boundary: String = UUID().uuidString
         request.timeoutInterval = timeoutInterval
@@ -34,6 +34,10 @@ extension MultipartFormDataRequest: URLRequestBuildable {
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         if let organizationIdentifier {
             request.setValue(organizationIdentifier, forHTTPHeaderField: "OpenAI-Organization")
+        }
+        // Set the expected host on the HTTP request within the `Host` header field, if present
+        if let expectedHost {
+            request.setValue(expectedHost, forHTTPHeaderField: "Host")
         }
         request.httpBody = body.encode(boundary: boundary)
         return request

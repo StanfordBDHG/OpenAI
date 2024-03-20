@@ -26,11 +26,35 @@ final public class OpenAI: OpenAIProtocol {
         /// Default request timeout
         public let timeoutInterval: TimeInterval
         
-        public init(token: String, organizationIdentifier: String? = nil, host: String = "api.openai.com", timeoutInterval: TimeInterval = 60.0) {
+        /// Custom CA certificate that should be used for the TLS verification.
+        public let caCertificate: SecCertificate?
+        
+        /// Expected API domain hostname, set in the HTTP header "Host". Useful if the to be connected IP should verify against a TLS token issued for a certain host domain.
+        public let expectedHost: String?
+        
+        /// Create a new ``OpenAI`` instance.
+        ///
+        /// - Parameters:
+        ///    - token: OpenAI API token passed via the `Bearer` authentication HTTP header.
+        ///    - organizationIdentifier: Optional OpenAI organization identifier.
+        ///    - host: API host that the ``OpenAI`` client should connect to, defaults to `api.openai.com`.
+        ///    - timeoutInterval: The maximum interval that a request is allowed to take until timeout.
+        ///    - caCertificate: Optional custom CA certificate that should be used for the TLS verification. Useful if using a custom root CA certificate to sign the API host.
+        ///    - expectedHost: Optional expected hostname to verify the received TLS token against. Useful for network requests to another domain or IP than the host issued the TLS token.
+        public init(
+            token: String,
+            organizationIdentifier: String? = nil,
+            host: String = "api.openai.com",
+            timeoutInterval: TimeInterval = 60.0,
+            caCertificate: SecCertificate? = nil,
+            expectedHost: String? = nil
+        ) {
             self.token = token
             self.organizationIdentifier = organizationIdentifier
             self.host = host
             self.timeoutInterval = timeoutInterval
+            self.caCertificate = caCertificate
+            self.expectedHost = expectedHost
         }
     }
     
@@ -119,12 +143,15 @@ final public class OpenAI: OpenAIProtocol {
 }
 
 extension OpenAI {
-
+    // As non-streaming inference requests are not currently supported by SpeziLLM,
+    // no need to adjust this function for custom TLS verification (required for Fog LLM functionality)
     func performRequest<ResultType: Codable>(request: any URLRequestBuildable, completion: @escaping (Result<ResultType, Error>) -> Void) {
         do {
             let request = try request.build(token: configuration.token, 
                                             organizationIdentifier: configuration.organizationIdentifier,
-                                            timeoutInterval: configuration.timeoutInterval)
+                                            timeoutInterval: configuration.timeoutInterval,
+                                            expectedHost: configuration.expectedHost)
+            
             let task = session.dataTask(with: request) { data, _, error in
                 if let error = error {
                     return completion(.failure(error))
@@ -149,8 +176,9 @@ extension OpenAI {
         do {
             let request = try request.build(token: configuration.token, 
                                             organizationIdentifier: configuration.organizationIdentifier,
-                                            timeoutInterval: configuration.timeoutInterval)
-            let session = StreamingSession<ResultType>(urlRequest: request)
+                                            timeoutInterval: configuration.timeoutInterval,
+                                            expectedHost: configuration.expectedHost)
+            let session = StreamingSession<ResultType>(urlRequest: request, caCertificate: configuration.caCertificate, expectedHost: configuration.expectedHost)
             session.onReceiveContent = {_, object in
                 onResult(.success(object))
             }
@@ -168,11 +196,14 @@ extension OpenAI {
         }
     }
     
+    // As non-streaming inference requests are not currently supported by SpeziLLM,
+    // no need to adjust this function for custom TLS verification (required for Fog LLM functionality)
     func performSpeechRequest(request: any URLRequestBuildable, completion: @escaping (Result<AudioSpeechResult, Error>) -> Void) {
         do {
             let request = try request.build(token: configuration.token, 
                                             organizationIdentifier: configuration.organizationIdentifier,
-                                            timeoutInterval: configuration.timeoutInterval)
+                                            timeoutInterval: configuration.timeoutInterval,
+                                            expectedHost: configuration.expectedHost)
             
             let task = session.dataTask(with: request) { data, _, error in
                 if let error = error {
@@ -192,11 +223,17 @@ extension OpenAI {
 }
 
 extension OpenAI {
-    
     func buildURL(path: String) -> URL {
         var components = URLComponents()
         components.scheme = "https"
-        components.host = configuration.host
+        
+        // If IPv6 address, surround the address with '[' and ']' as required by RFC 3986: https://datatracker.ietf.org/doc/html/rfc3986
+        if configuration.host.contains(":") && !configuration.host.hasPrefix("[") && !configuration.host.hasSuffix("]") {
+            components.host = "[\(configuration.host)]"
+        } else {
+            components.host = configuration.host
+        }
+        
         components.path = path
         return components.url!
     }

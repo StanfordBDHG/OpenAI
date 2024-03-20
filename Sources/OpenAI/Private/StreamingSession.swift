@@ -9,6 +9,7 @@ import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
+import Security
 
 final class StreamingSession<ResultType: Codable>: NSObject, Identifiable, URLSessionDelegate, URLSessionDataDelegate {
     
@@ -29,9 +30,19 @@ final class StreamingSession<ResultType: Codable>: NSObject, Identifiable, URLSe
     }()
     
     private var previousChunkBuffer = ""
+    private let caCertificate: SecCertificate?
+    private let expectedHost: String?
 
-    init(urlRequest: URLRequest) {
+    /// Create an instance of the `StreamingSession`
+    ///
+    /// - Parameters:
+    ///    - urlRequest: Base `URLRequest`
+    ///    - caCertificate: The optional, to-be-trusted custom CA certificate.
+    ///    - expectedHost: The optional expected hostname to verify the received TLS token against. Useful for network requests to another domain or IP than the host issued the TLS token (e.g. within a local network with non-public hostnames and requests via IPs)
+    init(urlRequest: URLRequest, caCertificate: SecCertificate? = nil, expectedHost: String? = nil) {
         self.urlRequest = urlRequest
+        self.caCertificate = caCertificate
+        self.expectedHost = expectedHost
     }
     
     func perform() {
@@ -44,6 +55,46 @@ final class StreamingSession<ResultType: Codable>: NSObject, Identifiable, URLSe
         onComplete?(self, error)
     }
     
+    /// Handle HTTP 401 and 403 status codes returned by OpenAI API implementations such as Ollama and completes the current request with an error.
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+            if let httpResponse = response as? HTTPURLResponse {
+                // Handle negative HTTP status code returned by various OpenAI API implementations
+                if httpResponse.statusCode == 401 {
+                    // Propagate the HTTP error up the call stack
+                    onComplete?(
+                        self,
+                        APIErrorResponse(
+                            error: .init(
+                                message: "HTTP 401: Unauthorized",
+                                type: "unauthorized",
+                                param: nil,
+                                code: "401"
+                            )
+                        )
+                    )
+                    completionHandler(.cancel)
+                    return
+                } else if httpResponse.statusCode == 403 {
+                    // Propagate the HTTP error up the call stack
+                    onComplete?(
+                        self,
+                        APIErrorResponse(
+                            error: .init(
+                                message: "HTTP 403: Forbidden",
+                                type: "forbidden",
+                                param: nil,
+                                code: "403"
+                            )
+                        )
+                    )
+                    completionHandler(.cancel)
+                    return
+                }
+            }
+            
+            completionHandler(.allow)
+        }
+    
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         guard let stringContent = String(data: data, encoding: .utf8) else {
             onProcessingError?(self, StreamingError.unknownContent)
@@ -52,6 +103,40 @@ final class StreamingSession<ResultType: Codable>: NSObject, Identifiable, URLSe
         processJSON(from: stringContent)
     }
     
+    /// Handle custom TLS certificate verification of `StreamingSession` requests.
+    ///
+    /// Uses the `caCertificate` and `expectedHost` parameters of the `StreamingSession` to verify the server's authenticity and establish a secure SSL connection.
+    func urlSession(
+        _ session: URLSession,
+        didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+    ) {
+        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+              let serverTrust = challenge.protectionSpace.serverTrust,
+              let caCertificate, let expectedHost else {
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
+
+        // Set the anchor certificate
+        let anchorCertificates: [SecCertificate] = [caCertificate]
+        SecTrustSetAnchorCertificates(serverTrust, anchorCertificates as CFArray)
+        
+        SecTrustSetAnchorCertificatesOnly(serverTrust, true)
+        
+        let policy = SecPolicyCreateSSL(true, expectedHost as CFString)
+        SecTrustSetPolicies(serverTrust, policy)
+        
+        var error: CFError?
+        if SecTrustEvaluateWithError(serverTrust, &error) {
+            // Trust evaluation succeeded, proceed with the connection
+            completionHandler(.useCredential, URLCredential(trust: serverTrust))
+        } else {
+            // Trust evaluation failed, handle the error
+            print("OpenAI: Trust evaluation failed with error: \(error?.localizedDescription)")
+            completionHandler(.cancelAuthenticationChallenge, nil)
+        }
+    }
 }
 
 extension StreamingSession {
