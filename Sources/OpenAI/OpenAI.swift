@@ -1,3 +1,4 @@
+
 //
 //  OpenAI.swift
 //
@@ -22,6 +23,10 @@ final public class OpenAI: OpenAIProtocol {
         
         /// API host. Set this property if you use some kind of proxy or your own server. Default is api.openai.com
         public let host: String
+        /// API port. Set this property if you use some kind of proxy or your own server. Default is 443
+        public let port: Int
+        /// API scheme. Set this property if you use some kind of proxy or your own server. Default is 443
+        public let scheme: String
         
         /// Default request timeout
         public let timeoutInterval: TimeInterval
@@ -45,6 +50,8 @@ final public class OpenAI: OpenAIProtocol {
             token: String,
             organizationIdentifier: String? = nil,
             host: String = "api.openai.com",
+            port: Int = 443,
+            scheme: String = "https",
             timeoutInterval: TimeInterval = 60.0,
             caCertificate: SecCertificate? = nil,
             expectedHost: String? = nil
@@ -52,6 +59,8 @@ final public class OpenAI: OpenAIProtocol {
             self.token = token
             self.organizationIdentifier = organizationIdentifier
             self.host = host
+            self.port = port
+            self.scheme = scheme
             self.timeoutInterval = timeoutInterval
             self.caCertificate = caCertificate
             self.expectedHost = expectedHost
@@ -85,7 +94,7 @@ final public class OpenAI: OpenAIProtocol {
     }
     
     public func completionsStream(query: CompletionsQuery, onResult: @escaping (Result<CompletionsResult, Error>) -> Void, completion: ((Error?) -> Void)?) {
-        performSteamingRequest(request: JSONRequest<CompletionsResult>(body: query.makeStreamable(), url: buildURL(path: .completions)), onResult: onResult, completion: completion)
+        performStreamingRequest(request: JSONRequest<CompletionsResult>(body: query.makeStreamable(), url: buildURL(path: .completions)), onResult: onResult, completion: completion)
     }
     
     public func images(query: ImagesQuery, completion: @escaping (Result<ImagesResult, Error>) -> Void) {
@@ -109,7 +118,7 @@ final public class OpenAI: OpenAIProtocol {
     }
     
     public func chatsStream(query: ChatQuery, onResult: @escaping (Result<ChatStreamResult, Error>) -> Void, completion: ((Error?) -> Void)?) {
-        performSteamingRequest(request: JSONRequest<ChatResult>(body: query.makeStreamable(), url: buildURL(path: .chats)), onResult: onResult, completion: completion)
+        performStreamingRequest(request: JSONRequest<ChatStreamResult>(body: query.makeStreamable(), url: buildURL(path: .chats)), onResult: onResult, completion: completion)
     }
     
     public func edits(query: EditsQuery, completion: @escaping (Result<EditsResult, Error>) -> Void) {
@@ -124,6 +133,7 @@ final public class OpenAI: OpenAIProtocol {
         performRequest(request: JSONRequest<ModelsResult>(url: buildURL(path: .models), method: "GET"), completion: completion)
     }
     
+    @available(iOS 13.0, *)
     public func moderations(query: ModerationsQuery, completion: @escaping (Result<ModerationsResult, Error>) -> Void) {
         performRequest(request: JSONRequest<ModerationsResult>(body: query, url: buildURL(path: .moderations)), completion: completion)
     }
@@ -172,7 +182,7 @@ extension OpenAI {
         }
     }
     
-    func performSteamingRequest<ResultType: Codable>(request: any URLRequestBuildable, onResult: @escaping (Result<ResultType, Error>) -> Void, completion: ((Error?) -> Void)?) {
+    func performStreamingRequest<ResultType: Codable>(request: any URLRequestBuildable, onResult: @escaping (Result<ResultType, Error>) -> Void, completion: ((Error?) -> Void)?) {
         do {
             let request = try request.build(token: configuration.token, 
                                             organizationIdentifier: configuration.organizationIdentifier,
@@ -213,7 +223,7 @@ extension OpenAI {
                     return completion(.failure(OpenAIError.emptyData))
                 }
                 
-                completion(.success(AudioSpeechResult(audioData: data)))
+                completion(.success(AudioSpeechResult(audio: data)))
             }
             task.resume()
         } catch {
@@ -225,7 +235,8 @@ extension OpenAI {
 extension OpenAI {
     func buildURL(path: String) -> URL {
         var components = URLComponents()
-        components.scheme = "https"
+        components.scheme = configuration.scheme
+        components.port = configuration.port
         
         // If IPv6 address, wrap the IP with '[' and ']' as required by RFC 3986: https://datatracker.ietf.org/doc/html/rfc3986
         if configuration.host.contains(":") && !configuration.host.hasPrefix("[") && !configuration.host.hasSuffix("]") {
