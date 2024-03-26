@@ -2,6 +2,11 @@
 
 ![logo](https://user-images.githubusercontent.com/1411778/218319355-f56b6bd4-961a-4d8f-82cd-6dbd43111d7f.png)
 
+> [!NOTE]  
+> This repository is a [StanfordBDHG](https://github.com/StanfordBDHG) fork of the [MacPaw OpenAI project](https://github.com/MacPaw/OpenAI), adding support for:
+> - Custom CA certificate verification for HTTPS requests.
+> - Support for the visionOS and macOS SDKs.
+> - Minor bugfixes and adjustments throughout the package.
 ___
 
 ![Swift Workflow](https://github.com/MacPaw/OpenAI/actions/workflows/swift.yml/badge.svg)

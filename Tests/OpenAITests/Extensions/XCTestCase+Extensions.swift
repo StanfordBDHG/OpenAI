@@ -11,9 +11,11 @@ import XCTest
 import Combine
 
 //Borrowed from here: https://www.swiftbysundell.com/articles/unit-testing-combine-based-swift-code/
+@available(iOS 13.0, *)
 @available(watchOS 6.0, *)
 @available(tvOS 13.0, *)
-@available(iOS 13.0, *)
+@available(visionOS 1.0, *)
+@available(macOS 14.0, *)
 extension XCTestCase {
     
     func awaitPublisher<T: Publisher>(
