@@ -25,7 +25,7 @@ final class MultipartFormDataRequest<ResultType> {
 
 extension MultipartFormDataRequest: URLRequestBuildable {
     
-    func build(token: String, organizationIdentifier: String?, timeoutInterval: TimeInterval, expectedHost: String?) throws -> URLRequest {
+    func build(token: String, organizationIdentifier: String?, timeoutInterval: TimeInterval, expectedHost: String? = nil) throws -> URLRequest {
         var request = URLRequest(url: url)
         let boundary: String = UUID().uuidString
         request.timeoutInterval = timeoutInterval

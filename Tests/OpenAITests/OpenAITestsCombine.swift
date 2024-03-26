@@ -13,6 +13,8 @@ import XCTest
 @available(iOS 13.0, *)
 @available(watchOS 6.0, *)
 @available(tvOS 13.0, *)
+@available(visionOS 1.0, *)
+@available(macOS 14.0, *)
 final class OpenAITestsCombine: XCTestCase {
     
     var openAI: OpenAIProtocol!

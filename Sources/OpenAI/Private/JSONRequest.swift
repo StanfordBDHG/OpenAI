@@ -25,7 +25,7 @@ final class JSONRequest<ResultType> {
 
 extension JSONRequest: URLRequestBuildable {
     
-    func build(token: String, organizationIdentifier: String?, timeoutInterval: TimeInterval, expectedHost: String?) throws -> URLRequest {
+    func build(token: String, organizationIdentifier: String?, timeoutInterval: TimeInterval, expectedHost: String? = nil) throws -> URLRequest {
         var request = URLRequest(url: url, timeoutInterval: timeoutInterval)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
