@@ -16,15 +16,17 @@ final public class OpenAI: OpenAIProtocol {
     public struct Configuration {
         
         /// OpenAI API token. See https://platform.openai.com/docs/api-reference/authentication
-        public let token: String
+        public var token: String?
         
         /// Optional OpenAI organization identifier. See https://platform.openai.com/docs/api-reference/authentication
         public let organizationIdentifier: String?
         
         /// API host. Set this property if you use some kind of proxy or your own server. Default is api.openai.com
         public let host: String
+        
         /// API port. Set this property if you use some kind of proxy or your own server. Default is 443
         public let port: Int
+        
         /// API scheme. Set this property if you use some kind of proxy or your own server. Default is 443
         public let scheme: String
         
@@ -47,7 +49,7 @@ final public class OpenAI: OpenAIProtocol {
         ///    - caCertificate: Optional custom CA certificate that should be used for the TLS verification. Useful if using a custom root CA certificate to sign the API host.
         ///    - expectedHost: Optional expected hostname to verify the received TLS token against. Useful for network requests to another domain or IP than the host issued the TLS token.
         public init(
-            token: String,
+            token: String?,
             organizationIdentifier: String? = nil,
             host: String = "api.openai.com",
             port: Int = 443,
@@ -70,7 +72,7 @@ final public class OpenAI: OpenAIProtocol {
     private let session: URLSessionProtocol
     private var streamingSessions = ArrayWithThreadSafety<NSObject>()
     
-    public let configuration: Configuration
+    public var configuration: Configuration
 
     public convenience init(apiToken: String) {
         self.init(configuration: Configuration(token: apiToken), session: URLSession.shared)

@@ -133,7 +133,7 @@ final class StreamingSession<ResultType: Codable>: NSObject, Identifiable, URLSe
             completionHandler(.useCredential, URLCredential(trust: serverTrust))
         } else {
             // Trust evaluation failed, handle the error
-            print("OpenAI: Trust evaluation failed with error: \(error?.localizedDescription)")
+            print("OpenAI: Trust evaluation failed with error: \(String(describing: error?.localizedDescription))")
             completionHandler(.cancelAuthenticationChallenge, nil)
         }
     }
