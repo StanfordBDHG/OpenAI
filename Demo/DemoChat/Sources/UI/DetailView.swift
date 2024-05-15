@@ -19,7 +19,7 @@ struct DetailView: View {
     @State private var showsModelSelectionSheet = false
     @State private var selectedChatModel: Model = .gpt4_0613
 
-    private static let availableChatModels: [Model] = [.gpt3_5Turbo, .gpt4]
+    private static let availableChatModels: [Model] = [.gpt3_5Turbo, .gpt4, .gpt4_o]
 
     let conversation: Conversation
     let error: Error?
